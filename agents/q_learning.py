@@ -1,3 +1,8 @@
+# This is an example of how agents can be implemented.
+# Each new agent should inherit from the BaseAgent class and implement the choose_action and learn methods.
+# Write a new agent in a new file and import it in the main.py file to use it in the training loop.
+
+
 import numpy as np
 from .base_agent import BaseAgent
 

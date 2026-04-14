@@ -1,6 +1,6 @@
-# MountainCar RL Testbed
+# MountainCar RL
 
-Testbed for testing reinforcement learning algorithms on the MountainCar-v0 environment from Gymnasium.
+Testbed for exploring reinforcement learning algorithms on the MountainCar-v0 environment from Gymnasium.
 
 ## Structure
 
