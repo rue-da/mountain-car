@@ -53,6 +53,8 @@ class DQNAgent(BaseAgent):
         self.batch_size = batch_size
         self.target_update = target_update
         self.warmup = warmup
+        self.hidden = hidden
+        self.lr = lr
         self.step_count = 0
 
         self.n_actions = env.action_space.n
@@ -69,6 +71,7 @@ class DQNAgent(BaseAgent):
         self.buffer = deque(maxlen=buffer_size)
         self.rng = np.random.default_rng(seed)
         self._py_rng = random.Random(seed)
+        self._loss_buffer = []
 
     def choose_action(self, state):
         if self.rng.random() < self.epsilon:
@@ -112,9 +115,31 @@ class DQNAgent(BaseAgent):
         loss.backward()
         nn.utils.clip_grad_norm_(self.online.parameters(), 10.0)
         self.opt.step()
+        self._loss_buffer.append(float(loss.item()))
 
         if self.step_count % self.target_update == 0:
             self.target.load_state_dict(self.online.state_dict())
+
+    def get_config(self):
+        return {
+            "lr": self.lr,
+            "gamma": self.gamma,
+            "epsilon_start": self.epsilon_start,
+            "epsilon_min": self.epsilon_min,
+            "decay_steps": self.decay_steps,
+            "buffer_size": self.buffer.maxlen,
+            "batch_size": self.batch_size,
+            "warmup": self.warmup,
+            "target_update": self.target_update,
+            "hidden": self.hidden,
+        }
+
+    def get_metrics(self):
+        out = {"hyperparams/epsilon": float(self.epsilon)}
+        if self._loss_buffer:
+            out["losses/q_loss"] = float(np.mean(self._loss_buffer))
+            self._loss_buffer = []
+        return out
 
     def save(self, path):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -149,8 +174,6 @@ if __name__ == "__main__":
 
     run(train_env, agent, episodes=600, run_name="_smoke_dqn")
     results = evaluate(eval_env, agent, n=20)
-    steps = -np.array(results["rewards"])
-    mean_steps = float(steps.mean())
-    print(f"[smoke] discrete_steps eval: mean_steps={mean_steps:.1f} "
-          f"success={(steps < 200).mean():.2f}")
-    assert mean_steps < 200, "agent never reached the flag"
+    print(f"[smoke] discrete_steps eval: mean_steps={results['true_obj_mean']:.1f} "
+          f"success_rate={results['success_rate']:.2f}")
+    assert results["true_obj_mean"] < 200, "agent never reached the flag"

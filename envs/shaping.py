@@ -43,3 +43,46 @@ class EnergyShapingWrapper(gym.Wrapper):
         self._prev_phi = phi
         info["shaping_bonus"] = float(bonus)
         return obs, reward + bonus, terminated, truncated, info
+
+
+class BestPositionWrapper(gym.Wrapper):
+    """Sparse bonus for reaching a new rightmost position this episode."""
+
+    def __init__(self, env, scale=50.0):
+        super().__init__(env)
+        self.scale = scale
+        self._best_pos = -float("inf")
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self._best_pos = float(obs[0])
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        pos = float(obs[0])
+        bonus = 0.0
+        if pos > self._best_pos:
+            bonus = self.scale * (pos - self._best_pos)
+            self._best_pos = pos
+        info["best_pos_bonus"] = bonus
+        return obs, reward + bonus, terminated, truncated, info
+
+
+class GoalBonusWrapper(gym.Wrapper):
+    """One-time bonus added on the terminal step (when the agent reaches the goal).
+
+    Not potential-based: this changes the reward structure rather than shaping it.
+    Useful as a crutch when the agent struggles to find the goal at all.
+    """
+
+    def __init__(self, env, bonus=1000.0):
+        super().__init__(env)
+        self.bonus = bonus
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        if terminated:
+            reward += self.bonus
+            info["goal_bonus"] = self.bonus
+        return obs, reward, terminated, truncated, info

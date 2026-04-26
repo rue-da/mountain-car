@@ -34,6 +34,3 @@ class ContinuousStepsRewardWrapper(gym.Wrapper):
         if terminated:
             reward += self.goal_bonus
         return obs, reward, terminated, truncated, info
-
-
-MinFuelWrapper = DiscreteFuelRewardWrapper
