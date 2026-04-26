@@ -15,41 +15,55 @@ Shared contract: nobody touches `envs/`, `core/logger.py`, or the notebook struc
 ## Person A — Environments + reward shaping  [DONE, see status at bottom]
 Owns `envs/`. Foundation everyone else builds on.
 - [x] `envs/wrappers.py` — `DiscreteFuelRewardWrapper`, `ContinuousStepsRewardWrapper`
-- [x] `envs/shaping.py` — `EnergyShapingWrapper` (potential-based, preserves optimal policy)
+- [x] `envs/shaping.py` — `EnergyShapingWrapper` (potential-based, preserves optimal policy); added `BestPositionWrapper` (sparse bonus for new rightmost position) and `GoalBonusWrapper` (one-time terminal bonus)
 - [x] `envs/tracking.py` — `TrueObjectiveWrapper` (info["true_obj*"], info["success"])
-- [x] `envs/factory.py` — `make_env(variant, seed, shape=False)`
+- [x] `envs/factory.py` — `make_env` signature updated with descriptive params: `energy_shaping`, `energy_scale`, `energy_gamma`, `best_pos_shaping`, `best_pos_scale`, `goal_bonus`, `render_mode`
 - [ ] Smoke-test notebook section 2 that loops over all 4 variants and renders one random rollout
 
-## Person B — Tabular + discrete deep agents
+## Person B — Tabular + discrete deep agents  [IN PROGRESS]
+
 Owns `agents/q_learning.py` (refactor) and `agents/dqn.py` (new). Target variants: `discrete_steps`, `discrete_fuel`.
-- Replace uniform binning with **tile coding** (or at least 40×40 bins) on position/velocity
-- Slower ε decay (reach ε_min after ~50% of training, not ~500 episodes)
-- Should converge to ~−120 to −150 steps on `discrete_steps` with shaping in ≤50k env steps
-- `agents/dqn.py`: either SB3 DQN wrapper or pytorch custom (replay buffer 50k, target net, double-DQN optional). Must expose `BaseAgent.choose_action` for plots to work deterministically.
-- `save(path)` / `load(path)` on both
-- Done when: `python -m agents.q_learning` trains 20k steps on `discrete_steps` and prints `eval_mean_steps < 180`
 
-## Person C — Continuous agents + training infrastructure
+- [x] 40×40 bins on position/velocity (`n_bins=40`)
+- [x] Slower ε decay via `decay_steps` param (configurable, default 50k steps)
+- [x] `agents/dqn.py`: custom PyTorch — replay buffer 50k, target network, epsilon-greedy. Exposes `choose_action` for deterministic plotting
+- [x] `save(path)` / `load(path)` on both agents
+- [x] `get_config()` and `get_metrics()` on both (epsilon, q_loss for DQN) — feeds into TensorBoard and CSV via trainer
+- [x] Fixed `bin_edges` dtype bug in `QLearningAgent.load` (object array → float64)
+- [ ] Convergence target: `eval_mean_steps < 180` on `discrete_steps` — currently ~196, needs more training or tuning
+
+## Person C — Continuous agents + training infrastructure  [IN PROGRESS]
+
 Owns `agents/sac.py` (new) and `core/trainer.py` (extend). Target variants: `continuous_steps`, `continuous_fuel`.
-- `agents/sac.py`: SB3 SAC wrapper. Add `train(env, total_steps)` method; trainer dispatches to it instead of step-by-step loop when agent has one.
-- Optional second continuous baseline (TD3 or DDPG) for comparison in the report
-- `core/trainer.run_matrix(variants, agent_factories, seeds)` that runs N×M×K and saves best-by-eval checkpoint to `models/{variant}_{agent}_seed{k}/`
-- Extend `core/logger.py` to log both `reward/shaped` AND `objective/true_cum` as separate TB scalars (plus `episode/length` and `success_rate/rolling_100`)
-- Add `stable-baselines3>=2.0` to `requirements.txt`
 
-## Person D — Evaluation, visualization, notebook, report, Part 02
+- [x] `agents/sac.py`: SB3 SAC wrapper exposing `choose_action`, `learn`, `get_config`, `get_metrics`, `save`, `load`
+- [x] `agents/sac.py`: q_loss tracked via SB3 internal logger (`train/critic_loss`), flows into CSV and TensorBoard
+- [x] `core/trainer.py`: extended to capture `info["true_obj_cum"]` and `info["success"]` per episode, calls `agent.get_metrics()` and passes to logger
+- [x] `core/logger.py`: logs `train/episode_reward`, `train/true_obj`, `train/success`, `train/success_rate_100`, agent metrics under their own namespaces; `log_run()` writes to `runs.json`
+- [ ] `core/trainer.run_matrix(...)` — not implemented
+- [ ] TD3 or DDPG optional baseline — not implemented
+- [ ] Add `stable-baselines3>=2.0` to `requirements.txt`
+
+## Person D — Evaluation, visualization, notebook, report, Part 02  [IN PROGRESS]
+
 Owns `core/evaluator.py` (rewrite), `visualization/plots.py` (extend), `notebooks/main.ipynb` (rewrite), `presentation/` (new), Part 02.
-- `core/evaluator.py`: 100 deterministic eps across fixed seeds (0..99). Greedy policy (ε=0 / SAC deterministic). Returns `{mean_steps, std_steps, mean_fuel, std_fuel, success_rate, trajectories}` — **computed from `info["true_obj*"]`, not from shaped reward**. Must run identically across all 4 variants.
-- `visualization/plots.py` add:
-  - `q_heatmap(agent)` — best-action color map over (position, velocity) [see assignment slides p.29]
-  - `value_surface(agent)` — 3D V(s)=max_a Q(s,a) mesh [slides p.31–32]
-  - `visitation_heatmap(agent)` [slide p.30]
-  - `phase_portrait(trajectories)` with reward-colored traces [slides p.33–34]
-  - `multi_seed_curve(logs)` — mean ± std band across seeds
-  - `cross_variant_bar(results)` — eval table as grouped bars
-- Notebook sections: 1. Setup • 2. Envs + shaping demo • 3. Agents overview • 4. Training (runs the matrix) • 5. Eval • 6. Cross-variant comparison • 7. Conclusions. Each section has markdown narrative for instructional value (the grading rubric weights "Value proposition" and "Outcomes" heavily).
-- `presentation/`: paper-style doc — abstract, methodology, results, interpretation, conclusions. Single PDF or pptx.
-- Part 02: pick one RL paper/project from the assignment's orientative list (DeepMind data-center cooling, Wayve self-driving, AlphaGo/AlphaZero, JPMorgan LOXM, Atari DQN, etc.). ~5–10 slides: problem framing, state/action/reward design, algorithm choice, results, your critical evaluation.
+
+- [x] `core/evaluator.py`: reads `info["true_obj_cum"]` and `info["success"]`; returns `reward_shaped_mean`, `true_obj_mean`, `true_obj_std`, `success_rate`, `trajectories`
+- [x] `visualization/plots.py` — implemented:
+  - [x] `policy_map(agent)` — best-action color map over (position, velocity)
+  - [x] `value_map(agent)` — V(s)=max_a Q(s,a) heatmap (works for QL, DQN, SAC)
+  - [x] `phase_portrait(agent, env)` — trajectories through state space with goal marker
+  - [x] `action_heatmap(agent)` — continuous action magnitude per state (SAC)
+  - [x] `entropy_heatmap(agent)` — policy uncertainty per state (SAC)
+  - [x] `reward_curve`, `true_obj_curve`, `success_rate_curve`, `q_convergence`
+  - [ ] `value_surface` — 3D mesh not implemented
+  - [ ] `visitation_heatmap` — not implemented
+  - [ ] `multi_seed_curve` — not implemented
+  - [ ] `cross_variant_bar` — not implemented
+- [x] `notebooks/main.ipynb`: QL, DQN, SAC sections with train/eval/plot; loads from saved files; video recording cells
+- [ ] Notebook narrative markdown (methodology, conclusions)
+- [ ] `presentation/` — not started
+- [ ] Part 02 — not started
 
 ## Dependency order
 ```
@@ -66,3 +80,4 @@ B and C can start in parallel as soon as A merges. D's notebook/eval can start i
 
 ## Status
 - **2026-04-19** Person A foundation merged. Smoke test across all 4 variants passes. B/C unblocked.
+- **2026-04-26** B: QL and DQN implemented and trained on `discrete_steps`. C: SAC implemented and trained on `continuous_steps`. D: evaluator, plots, and notebook updated for all three agents. Remaining: convergence tuning for QL/DQN, run_matrix, missing plots (value_surface, visitation, multi_seed, cross_variant), notebook narrative, presentation, Part 02.

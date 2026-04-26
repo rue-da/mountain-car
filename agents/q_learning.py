@@ -58,6 +58,19 @@ class QLearningAgent(BaseAgent):
         frac = min(1.0, self.step_count / self.decay_steps)
         self.epsilon = self.epsilon_start + frac * (self.epsilon_min - self.epsilon_start)
 
+    def get_config(self):
+        return {
+            "n_bins": self.n_bins,
+            "lr": self.lr,
+            "gamma": self.gamma,
+            "epsilon_start": self.epsilon_start,
+            "epsilon_min": self.epsilon_min,
+            "decay_steps": self.decay_steps,
+        }
+
+    def get_metrics(self):
+        return {"hyperparams/epsilon": float(self.epsilon)}
+
     def save(self, path):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         np.savez(
@@ -72,7 +85,7 @@ class QLearningAgent(BaseAgent):
         q = data["q_table"]
         agent = cls(env, n_bins=q.shape[0])
         agent.q_table = q
-        agent.bin_edges = list(data["bin_edges"])
+        agent.bin_edges = [np.asarray(e, dtype=np.float64) for e in data["bin_edges"]]
         agent.epsilon = 0.0
         return agent
 
@@ -85,14 +98,12 @@ if __name__ == "__main__":
     from core.trainer import run
     from envs import make_env
 
-    train_env = make_env("discrete_steps", seed=0, shape=True, shape_scale=5000.0)
+    train_env = make_env("discrete_steps", seed=0, shape=True)
     eval_env = make_env("discrete_steps", seed=100)
     agent = QLearningAgent(train_env, n_bins=40, lr=0.1, decay_steps=80_000, seed=0)
 
     run(train_env, agent, episodes=800, run_name="_smoke_qlearning")
     results = evaluate(eval_env, agent, n=20)
-    steps = -np.array(results["rewards"])
-    mean_steps = float(steps.mean())
-    print(f"[smoke] discrete_steps eval: mean_steps={mean_steps:.1f} "
-          f"success={(steps < 200).mean():.2f}")
-    assert mean_steps < 200, "agent never reached the flag"
+    print(f"[smoke] discrete_steps eval: mean_steps={results['true_obj_mean']:.1f} "
+          f"success_rate={results['success_rate']:.2f}")
+    assert results["true_obj_mean"] < 200, "agent never reached the flag"
