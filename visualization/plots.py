@@ -108,17 +108,17 @@ def policy_map(agent, env, ax=None):
 
 
 def action_heatmap(agent, env, ax=None):
-    """Mean continuous action per state (SAC/continuous agents)."""
+    """Deterministic action per state — works for any SB3 agent."""
     ax, owns = _resolve_ax(ax)
     pos = np.linspace(env.observation_space.low[0], env.observation_space.high[0], 50)
     vel = np.linspace(env.observation_space.low[1], env.observation_space.high[1], 50)
     actions = np.zeros((len(vel), len(pos)))
 
-    with torch.no_grad():
-        for i, v in enumerate(vel):
-            for j, p in enumerate(pos):
-                obs_t = torch.FloatTensor([[p, v]]).to(agent.model.device)
-                actions[i, j] = agent.model.actor._predict(obs_t, deterministic=True).item()
+    for i, v in enumerate(vel):
+        for j, p in enumerate(pos):
+            obs = np.array([[p, v]], dtype=np.float32)
+            action, _ = agent.model.predict(obs, deterministic=True)
+            actions[i, j] = float(action.flat[0])
 
     im = ax.imshow(actions, origin="lower", aspect="auto",
                    extent=[pos[0], pos[-1], vel[0], vel[-1]], cmap="coolwarm")
@@ -201,8 +201,15 @@ def _value_grid(agent, env, n=50):
             elif hasattr(agent, 'model') and hasattr(agent.model, 'critic'):
                 with torch.no_grad():
                     obs_t = torch.FloatTensor(state).unsqueeze(0).to(agent.model.device)
-                    action_t, _ = agent.model.actor.action_log_prob(obs_t)
+                    if hasattr(agent.model.actor, 'action_log_prob'):
+                        action_t, _ = agent.model.actor.action_log_prob(obs_t)
+                    else:
+                        action_t = agent.model.actor._predict(obs_t, deterministic=True)
                     values[i, j] = agent.model.critic(obs_t, action_t)[0].item()
+            elif hasattr(agent, 'model') and hasattr(agent.model.policy, 'predict_values'):
+                with torch.no_grad():
+                    obs_t = torch.FloatTensor(state).unsqueeze(0).to(agent.model.device)
+                    values[i, j] = agent.model.policy.predict_values(obs_t).item()
             else:
                 values[i, j] = agent.q_table[agent._discretize(state)].max()
     return pos, vel, values

@@ -73,6 +73,9 @@ class DQNAgent(BaseAgent):
         self._py_rng = random.Random(seed)
         self._loss_buffer = []
 
+    def _q_next(self, ns):
+        return self.target(ns).max(dim=1).values
+
     def choose_action(self, state):
         if self.rng.random() < self.epsilon:
             return int(self.rng.integers(self.n_actions))
@@ -107,7 +110,7 @@ class DQNAgent(BaseAgent):
 
         q = self.online(s).gather(1, a.unsqueeze(1)).squeeze(1)
         with torch.no_grad():
-            q_next = self.target(ns).max(dim=1).values
+            q_next = self._q_next(ns)
             target = r + self.gamma * q_next * (1.0 - d)
         loss = nn.functional.smooth_l1_loss(q, target)
 
