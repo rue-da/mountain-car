@@ -3,8 +3,8 @@ Tabular Q-learning with uniform state discretization.
 
 Target variants: discrete_steps, discrete_fuel. Convergence on the vanilla
 discrete_steps variant is hard without reward shaping — pair with
-envs.EnergyShapingWrapper (set shape=True in make_env) for reliable training
-inside the 200-step truncation.
+envs.EnergyShapingWrapper (set energy_shaping=True in make_env) for reliable
+training inside the 200-step truncation.
 """
 
 import os
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     from core.trainer import run
     from envs import make_env
 
-    train_env = make_env("discrete_steps", seed=0, shape=True)
+    train_env = make_env("discrete_steps", seed=0, energy_shaping=True)
     eval_env = make_env("discrete_steps", seed=100)
     agent = QLearningAgent(train_env, n_bins=40, lr=0.1, decay_steps=80_000, seed=0)
 

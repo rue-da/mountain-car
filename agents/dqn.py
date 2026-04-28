@@ -168,7 +168,7 @@ if __name__ == "__main__":
     from core.trainer import run
     from envs import make_env
 
-    train_env = make_env("discrete_steps", seed=0, shape=True)
+    train_env = make_env("discrete_steps", seed=0, energy_shaping=True)
     eval_env = make_env("discrete_steps", seed=100)
     agent = DQNAgent(train_env, decay_steps=60_000, seed=0)
 

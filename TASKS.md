@@ -40,9 +40,9 @@ Owns `agents/sac.py` (new) and `core/trainer.py` (extend). Target variants: `con
 - [x] `agents/sac.py`: q_loss tracked via SB3 internal logger (`train/critic_loss`), flows into CSV and TensorBoard
 - [x] `core/trainer.py`: extended to capture `info["true_obj_cum"]` and `info["success"]` per episode, calls `agent.get_metrics()` and passes to logger
 - [x] `core/logger.py`: logs `train/episode_reward`, `train/true_obj`, `train/success`, `train/success_rate_100`, agent metrics under their own namespaces; `log_run()` writes to `runs.json`
-- [ ] `core/trainer.run_matrix(...)` — not implemented
+- [x] `core/trainer.run_matrix(...)` — multi-seed × multi-(variant, agent) runner, returns aggregated `true_obj_mean/std` and `success_rate` per (name, variant)
 - [ ] TD3 or DDPG optional baseline — not implemented
-- [ ] Add `stable-baselines3>=2.0` to `requirements.txt`
+- [x] `stable-baselines3>=2.0` already in `requirements.txt`
 
 ## Person D — Evaluation, visualization, notebook, report, Part 02  [IN PROGRESS]
 
@@ -56,10 +56,10 @@ Owns `core/evaluator.py` (rewrite), `visualization/plots.py` (extend), `notebook
   - [x] `action_heatmap(agent)` — continuous action magnitude per state (SAC)
   - [x] `entropy_heatmap(agent)` — policy uncertainty per state (SAC)
   - [x] `reward_curve`, `true_obj_curve`, `success_rate_curve`, `q_convergence`
-  - [ ] `value_surface` — 3D mesh not implemented
-  - [ ] `visitation_heatmap` — not implemented
-  - [ ] `multi_seed_curve` — not implemented
-  - [ ] `cross_variant_bar` — not implemented
+  - [x] `value_surface` — 3D mesh of V(s)=max_a Q(s,a); reuses `_value_grid` helper shared with `value_map`
+  - [x] `visitation_heatmap` — 2D histogram of (position, velocity) visited across rollouts
+  - [x] `multi_seed_curve` — mean ± 1σ training curve across seeds, takes `run_matrix` per-seed log lists
+  - [x] `cross_variant_bar` — grouped bar chart over `run_matrix` output, error bars from per-seed std
 - [x] `notebooks/main.ipynb`: QL, DQN, SAC sections with train/eval/plot; loads from saved files; video recording cells
 - [ ] Notebook narrative markdown (methodology, conclusions)
 - [ ] `presentation/` — not started
@@ -81,3 +81,5 @@ B and C can start in parallel as soon as A merges. D's notebook/eval can start i
 ## Status
 - **2026-04-19** Person A foundation merged. Smoke test across all 4 variants passes. B/C unblocked.
 - **2026-04-26** B: QL and DQN implemented and trained on `discrete_steps`. C: SAC implemented and trained on `continuous_steps`. D: evaluator, plots, and notebook updated for all three agents. Remaining: convergence tuning for QL/DQN, run_matrix, missing plots (value_surface, visitation, multi_seed, cross_variant), notebook narrative, presentation, Part 02.
+- **2026-04-28** Cross-variant infrastructure landed: `run_matrix` aggregates per-seed eval into mean/std/success_rate; new plots `value_surface`, `visitation_heatmap`, `multi_seed_curve`, `cross_variant_bar`. Smoke tests fixed (`shape=True` → `energy_shaping=True`).
+- **2026-04-28** Notebook extended with min-fuel section: QL+DQN on `discrete_fuel` (with `goal_bonus=100` since native reward makes "do nothing" optimal otherwise), SAC on `continuous_fuel`. Final `Cross-variant comparison` cell builds a matrix-shaped dict from the six eval results and plots `true_obj_mean` and `success_rate` with `cross_variant_bar`. Remaining: run the new cells end-to-end and tune, narrative markdown, presentation, Part 02.
